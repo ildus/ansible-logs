@@ -1,0 +1,32 @@
+---
+- copy: src={{pam_amd64_package}} dest="/tmp/pam-ssh-agent-auth.deb"
+  when: ansible_architecture == 'x86_64'
+
+- copy: src={{pam_i386_package}} dest="/tmp/pam-ssh-agent-auth.deb"
+  when: ansible_architecture == 'i386'
+
+- apt: deb="/tmp/pam-ssh-agent-auth.deb" state=installed
+  sudo: true
+
+- name: Set up authorized_keys for sudo command
+  sudo: true
+  authorized_key: user=root
+                  key="{{ item }}"
+                  path=/etc/security/authorized_keys
+                  manage_dir=no
+  with_file:
+  - public_keys/ildus.pub
+  - public_keys/ildar.pub
+
+- lineinfile: dest=/etc/sudoers state=present line="Defaults env_keep += SSH_AUTH_SOCK"
+  sudo: true
+
+- lineinfile: dest=/etc/pam.d/sudo state=present line="auth sufficient pam_ssh_agent_auth.so file=/etc/security/authorized_keys" insertbefore="^@include common\-auth$"
+  sudo: true
+
+- name: Set up authorized_keys for deploy user
+  authorized_key: user={{deploy_user}}
+                  key="{{ item }}"
+  with_file:
+  - public_keys/ildus.pub
+  - public_keys/ildar.pub

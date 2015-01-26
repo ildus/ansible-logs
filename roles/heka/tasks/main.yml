@@ -1,0 +1,31 @@
+---
+- set_fact: heka_package={{heka_amd64_package}}
+  when: ansible_architecture == 'x86_64'
+
+- set_fact: heka_package={{heka_i386_package}}
+  when: ansible_architecture == 'i386'
+
+- name: Download the heka deb package
+  get_url: url={{heka_download_base}}/{{heka_package}}
+           dest=/usr/local/src/{{heka_package}}
+
+- name: Install heka
+  apt: deb=/usr/local/src/{{heka_package}}
+
+- name: Write heka config
+  template: src=heka.toml.j2 dest=/etc/hekad.toml
+  notify:
+  - restart heka
+
+- name: Write heka upstart configuration
+  template: src=heka.upstart.j2 dest=/etc/init/hekad.conf
+  notify:
+  - restart heka
+
+- name: Copy space checker script
+  copy: src=space_checker.sh
+        mode="u+rwx"
+        dest=/root
+
+- name: Setup crontab for space checker
+  cron: name="space_checker" minute="0" hour="*/1" job="/root/space_checker.sh" state=present

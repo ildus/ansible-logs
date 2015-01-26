@@ -1,0 +1,96 @@
+[hekad]
+maxprocs = {{ansible_processor_vcpus}}
+
+[Dashboard]
+type = "DashboardOutput"
+address = ":4352"
+ticker_interval = 15
+
+[UdpInput]
+address = "127.0.0.1:5565"
+parser_type = "message.proto"
+decoder = "ProtobufDecoder"
+
+[TcpInput]
+address = "127.0.0.1:5566"
+parser_type = "regexp"
+decoder = "TcpPayloadDecoder"
+
+[LoadAvg]
+type = "FilePollingInput"
+ticker_interval = 1
+file_path = "/proc/loadavg"
+decoder = "LoadAvgDecoder"
+
+[LoadAvgDecoder]
+type = "SandboxDecoder"
+filename = "lua_decoders/linux_loadavg.lua"
+
+[LoadAvgFilter]
+type = "SandboxFilter"
+filename = "lua_filters/loadavg.lua"
+ticker_interval = 60
+preserve_data = true
+message_matcher = "Type == 'stats.loadavg'"
+
+{% if inventory_hostname in groups['webservers'] %}
+[WebserverAccess]
+type = "LogstreamerInput"
+log_directory = "/var/log/nginx"
+file_match = 'access\.log'
+decoder = "NginxAccessDecoder"
+
+[NginxAccessDecoder]
+type = "SandboxDecoder"
+filename = "lua_decoders/nginx_access.lua"
+
+[NginxAccessDecoder.config]
+type = "nginx.access"
+user_agent_transform = true
+log_format = '$remote_addr - $request_time [$time_local] "$uri" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+
+[WebserverError]
+type = "LogstreamerInput"
+log_directory = "/var/log/nginx"
+file_match = 'error\.log'
+decoder = "NginxErrorDecoder"
+
+[NginxErrorDecoder]
+type = "SandboxDecoder"
+filename = "lua_decoders/nginx_error.lua"
+
+[NginxErrorDecoder.config]
+tz = "Europe/Moscow"
+{% endif %}
+
+[TcpPayloadDecoder]
+type = "PayloadRegexDecoder"
+#Parses space_checker[INFO|2014-01-01 3:08:06]: Need more space on disk /dev/sda6
+match_regex = '^(?P<LoggerName>[\w\.\-]+)\[(?P<Hostname>[^\|]+)\|(?P<Severity>[A-Z]+)\|(?P<Timestamp>[\d\-\s:]+)\]: (?P<Message>.*)'
+timestamp_layout = "2006-01-02 15:04:05"
+timestamp_location = "Europe/Moscow"
+
+[TcpPayloadDecoder.severity_map]
+ERROR = 3
+WARNING = 4
+INFO = 6
+ALERT = 1
+
+[TcpPayloadDecoder.message_fields]
+Type = "scripts"
+Message = "%Message%"
+Logger = "%LoggerName%"
+Hostname = "%Hostname%"
+Payload = "[%Hostname%|%LoggerName%] %Message%"
+
+[ESJsonEncoder]
+index = "heka-%{Type}-%{2006.01.02}"
+es_index_from_timestamp = true
+type_name = "%{Type}"
+
+[ElasticSearchOutput]
+message_matcher = "Type=='stats.loadavg' Type=='scripts' || Type=='nginx.access' || Type=='nginx.error'"
+server = "http://{{ hostvars[groups['elasticsearch'][0]]['ansible_default_ipv4']['address'] }}:9200"
+flush_interval = 5000
+flush_count = 10
+encoder = "ESJsonEncoder"

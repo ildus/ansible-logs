@@ -1,0 +1,4 @@
+---
+- name: restart heka
+  service: name=hekad state=restarted
+  sudo: yes

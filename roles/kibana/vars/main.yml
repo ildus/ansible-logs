@@ -1,0 +1,4 @@
+kibana_tarball: kibana-4.0.0-beta3.tar.gz
+kibana_download_location: "https://download.elasticsearch.org/kibana/kibana/{{kibana_tarball}}"
+kibana_base_dir: "/home/{{deploy_user}}"
+kibana_location: "{{kibana_base_dir}}/kibana"

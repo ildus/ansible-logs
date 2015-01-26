@@ -1,0 +1,40 @@
+---
+- name: Install java
+  apt: name={{ item }} state=present
+  sudo: true
+  with_items:
+  - openjdk-7-jre
+
+- name: Download the kibana tarball
+  get_url: url={{ kibana_download_location }}
+           dest={{ kibana_base_dir }}/{{ kibana_tarball }}
+  register: kibana_download
+
+- name: Remove old kibana directory if exists
+  shell: rm -rf {{kibana_location}}
+  ignore_errors: yes
+  when: kibana_download.changed
+
+- name: Check that kibana folder exists
+  file: path={{kibana_location}} state=directory
+
+- name: Extract the kibana tarball
+  command: tar -C {{kibana_location}} -xf {{ kibana_base_dir }}/{{ kibana_tarball }}
+  when: kibana_download.changed
+
+- name: Change name of kibana extracted folder
+  shell: mv kibana-* inst
+  args:
+     chdir: "{{kibana_location}}"
+  when: kibana_download.changed
+
+- name: Write kibana config
+  template: src=kibana.yml.j2 dest={{kibana_location}}/inst/config/kibana.yml
+  notify:
+  - restart kibana
+
+- name: Write upstart script
+  sudo: true
+  template: src=kibana.upstart.j2 dest=/etc/init/kibana.conf
+  notify:
+  - restart kibana

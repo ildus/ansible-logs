@@ -1,0 +1,12 @@
+- hosts: elasticsearch
+  roles:
+  - elasticsearch
+
+- hosts: kibana
+  roles:
+  - kibana
+
+- hosts: all
+  sudo: true
+  roles:
+  - heka

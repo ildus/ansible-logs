@@ -1,0 +1,34 @@
+---
+- name: Install requirements (java and others)
+  apt: name={{ item }} state=present
+  sudo: true
+  with_items:
+  - openjdk-7-jre
+  - python-apt
+  - python-setuptools
+
+- apt_key: url=http://packages.elasticsearch.org/GPG-KEY-elasticsearch state=present
+  sudo: true
+
+- apt_repository: repo='deb http://packages.elasticsearch.org/elasticsearch/1.4/debian stable main' state=present
+  sudo: true
+
+- name: Install elasticsearch
+  apt: name=elasticsearch state=present
+  sudo: true
+  notify:
+  - restart elasticsearch
+
+- name: Download and install pip
+  sudo: true
+  easy_install: name=pip
+
+- name: Download and install elasticsearch curator
+  sudo: true
+  pip: name={{ item }} state=present
+  with_items:
+    - elasticsearch-curator
+
+- name: Setup elasticsearch curator
+  run_once: true
+  cron: name="curator" minute="0" hour="6" job="curator delete --older-than 10" state=present
