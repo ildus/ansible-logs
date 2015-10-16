@@ -1,0 +1,4 @@
+heka_download_base: https://github.com/mozilla-services/heka/releases/download/v0.9.2
+heka_amd64_package: heka_0.9.2_amd64.deb
+heka_i386_package: heka_0.9.2_i386.deb
+heka_version: 0.9.2
